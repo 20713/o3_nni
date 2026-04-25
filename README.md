@@ -8,8 +8,9 @@
 - `o3_nni/`
   - `RTM_datasets/`：默认训练 `.mat` 路径所在目录（可自定义）
   - `TRAIN_datasets/`：数据准备脚本默认输出目录（可用 `--out_dir` 指定）
+  - `TRAIN_outputs/`：训练输出目录（默认），按时间戳保存 `model.pt`
   - `inputs/`：保留的输入示例目录（部分脚本仍可使用）
-  - `outputs/`：训练与验证输出目录（如 `model.pt`、对比图等）
+  - `outputs/`：评估与验证输出目录（对比图、PDF 等）
   - `data_prepare.py`：从 `.mat` 生成训练数据集 npz（包含 x/t 与 PCA 工件）
   - `model_train.py`：两层 MLP 训练，保存 `model.pt`
   - `infer.py`：加载模型并推断
@@ -44,22 +45,16 @@ python -m o3_nni.data_prepare \
 推荐使用数据集 npz 训练：
 
 ```bash
-python -m o3_nni.model_train --data .\o3_nni\TRAIN_datasets\trainset_...npz --epochs 20000
+python -m o3_nni.model_train --data_path .\o3_nni\TRAIN_datasets\trainset_...npz --epochs 2000
 ```
 
 输出：
-- `o3_nni/outputs/model.pt`
-
-兼容模式（不推荐）：仍可让 `model_train.py` 在线从 `.mat` 生成特征：
-
-```bash
-python -m o3_nni.model_train --mat .\o3_nni\RTM_datasets\run_20260307_110701_SmartG_OutputXY_For_NNtrain.mat --epochs 20000
-```
+- `o3_nni/TRAIN_outputs/{timestamp}/model.pt`
 
 ## 训练集评估出图
 
 ```bash
-python -m o3_nni.evaluate_plots --mat .\o3_nni\RTM_datasets\run_20260307_110701_SmartG_OutputXY_For_NNtrain.mat --out nni_py
+python -m o3_nni.evaluate_plots --mat .\o3_nni\RTM_datasets\run_20260307_110701_SmartG_OutputXY_For_NNtrain.mat --model .\o3_nni\TRAIN_outputs\{timestamp}\model.pt --out nni_py
 ```
 
 输出：
@@ -76,7 +71,7 @@ python -m o3_nni.validate_omps \
   --omps .\o3_nni\inputs\OMPS-NPP_LP-L1G-EV_v2.6_2016m0301t210605_o22509_2022m1005t174736.h5 \
   --bremen .\o3_nni\inputs\ESACCI-OZONE-L2-LP-OMPS_LP_SUOMI_NPP-IUP_UBR_V3_3NLC_UBR_HARMOZ_ALT-201603-fv0005.nc \
   --ozaux .\o3_nni\TRAIN_datasets\trainset_...npz \
-  --model .\o3_nni\outputs\model.pt \
+  --model .\o3_nni\TRAIN_outputs\{timestamp}\model.pt \
   --no-show --smooth 10 --save-pdf .\o3_nni\outputs\compare.pdf
 ```
 
