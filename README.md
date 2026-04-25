@@ -8,9 +8,9 @@
 - `o3_nni/`
   - `RTM_datasets/`：默认训练 `.mat` 路径所在目录（可自定义）
   - `TRAIN_datasets/`：数据准备脚本默认输出目录（可用 `--out_dir` 指定）
-  - `TRAIN_outputs/`：训练输出目录（默认），按时间戳保存 `model.pt`
+  - `TRAIN_outputs/`：训练输出目录（默认），按时间戳保存 `model.pt` 与评估图片
   - `inputs/`：保留的输入示例目录（部分脚本仍可使用）
-  - `outputs/`：评估与验证输出目录（对比图、PDF 等）
+  - `outputs/`：评估与验证输出目录（主要用于独立评估脚本与 OMPS 对照 PDF）
   - `data_prepare.py`：从 `.mat` 生成训练数据集 npz（包含 x/t 与 PCA 工件）
   - `model_train.py`：两层 MLP 训练，保存 `model.pt`
   - `infer.py`：加载模型并推断
@@ -48,10 +48,16 @@ python -m o3_nni.data_prepare \
 python -m o3_nni.model_train --data_path .\o3_nni\TRAIN_datasets\trainset_...npz --epochs 2000
 ```
 
-输出：
+输出（同一时间戳目录）：
 - `o3_nni/TRAIN_outputs/{timestamp}/model.pt`
+- `o3_nni/TRAIN_outputs/{timestamp}/nni_py_mean_std.png`
+- `o3_nni/TRAIN_outputs/{timestamp}/nni_py_dsz.png`
+- `o3_nni/TRAIN_outputs/{timestamp}/nni_py_signed_percentiles.png`
 
-## 训练集评估出图
+说明：
+- `model_train.py` 在训练结束后会自动生成上述 3 张评估图（前缀固定为 `nni_py`，无需额外参数）。
+
+## 独立评估出图（可选）
 
 ```bash
 python -m o3_nni.evaluate_plots --mat .\o3_nni\RTM_datasets\run_20260307_110701_SmartG_OutputXY_For_NNtrain.mat --model .\o3_nni\TRAIN_outputs\{timestamp}\model.pt --out nni_py
