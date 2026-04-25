@@ -9,8 +9,9 @@
   - `RTM_datasets/`：默认训练 `.mat` 路径所在目录（可自定义）
   - `TRAIN_datasets/`：数据准备脚本默认输出目录（可用 `--out_dir` 指定）
   - `TRAIN_outputs/`：训练输出目录（默认），按时间戳保存 `model.pt` 与评估图片
-  - `inputs/`：保留的输入示例目录（部分脚本仍可使用）
-  - `outputs/`：评估与验证输出目录（主要用于独立评估脚本与 OMPS 对照 PDF）
+  - `sample_files/`：保留的输入示例目录（部分脚本仍可使用）
+  - `outputs/`：评估输出目录（主要用于独立评估脚本）
+  - `validate_omps_output/`：`validate_omps.py` 默认输出根目录（按时间戳建子目录保存 PDF）
   - `data_prepare.py`：从 `.mat` 生成训练数据集 npz（包含 x/t 与 PCA 工件）
   - `model_train.py`：两层 MLP 训练，保存 `model.pt`
   - `infer.py`：加载模型并推断
@@ -24,8 +25,8 @@
 
 ```bash
 python -m o3_nni.data_prepare \
-  --mat .\o3_nni\RTM_datasets\run_20260307_110701_SmartG_OutputXY_For_NNtrain.mat \
-  --out_dir .\o3_nni\TRAIN_datasets \
+  --mat ./o3_nni/RTM_datasets/run_20260307_110701_SmartG_OutputXY_For_NNtrain.mat \
+  --out_dir ./o3_nni/TRAIN_datasets \
   --nc 7 \
   --inorm 41 \
   --nz 61 \
@@ -45,7 +46,7 @@ python -m o3_nni.data_prepare \
 推荐使用数据集 npz 训练：
 
 ```bash
-python -m o3_nni.model_train --data_path .\o3_nni\TRAIN_datasets\trainset_...npz --epochs 2000
+python -m o3_nni.model_train --data_path ./o3_nni/TRAIN_datasets/trainset_...npz --epochs 2000
 ```
 
 输出（同一时间戳目录）：
@@ -60,7 +61,7 @@ python -m o3_nni.model_train --data_path .\o3_nni\TRAIN_datasets\trainset_...npz
 ## 独立评估出图（可选）
 
 ```bash
-python -m o3_nni.evaluate_plots --mat .\o3_nni\RTM_datasets\run_20260307_110701_SmartG_OutputXY_For_NNtrain.mat --model .\o3_nni\TRAIN_outputs\{timestamp}\model.pt --out nni_py
+python -m o3_nni.evaluate_plots --mat ./o3_nni/RTM_datasets/run_20260307_110701_SmartG_OutputXY_For_NNtrain.mat --model ./o3_nni/TRAIN_outputs/{timestamp}/model.pt --out nni_py
 ```
 
 输出：
@@ -74,15 +75,18 @@ python -m o3_nni.evaluate_plots --mat .\o3_nni\RTM_datasets\run_20260307_110701_
 
 ```bash
 python -m o3_nni.validate_omps \
-  --omps .\o3_nni\inputs\OMPS-NPP_LP-L1G-EV_v2.6_2016m0301t210605_o22509_2022m1005t174736.h5 \
-  --bremen .\o3_nni\inputs\ESACCI-OZONE-L2-LP-OMPS_LP_SUOMI_NPP-IUP_UBR_V3_3NLC_UBR_HARMOZ_ALT-201603-fv0005.nc \
-  --ozaux .\o3_nni\TRAIN_datasets\trainset_...npz \
-  --model .\o3_nni\TRAIN_outputs\{timestamp}\model.pt \
-  --no-show --smooth 10 --save-pdf .\o3_nni\outputs\compare.pdf
+  --omps ./o3_nni/sample_files/OMPS-NPP_LP-L1G-EV_v2.6_2016m0301t224735_o22510_2022m1005t174807.h5 \
+  --bremen ./o3_nni/sample_files/ESACCI-OZONE-L2-LP-OMPS_LP_SUOMI_NPP-IUP_UBR_V3_3NLC_UBR_HARMOZ_ALT-201603-fv0005.nc \
+  --ozaux ./o3_nni/sample_files/ozAux3.npz \
+  --model ./o3_nni/sample_files/model.pt \
+  --no-show --smooth 10 --out_dir ./o3_nni/validate_omps
 ```
 
 说明：
 - `--ozaux` 可直接指定上一步生成的训练数据集 npz，因为其中已包含 `inorm/npcChan/Uoz/YMoz` 等工件
+- `--ozaux` 不填时默认使用 `./o3_nni/sample_files/ozAux3.npz`
+- `--model` 不填时默认使用 `./o3_nni/sample_files/model.pt`
+- `--out_dir` 不填时默认写入 `./o3_nni/validate_omps_output/{timestamp}/`
 - 每个 iT 输出一页 PDF：左侧 O3 剖面（BREMEN vs ONNI），右侧为通道辐射的重构曲线与观测散点
 
 ## 运行位置与依赖
