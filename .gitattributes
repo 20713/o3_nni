@@ -1,10 +1,5 @@
-inputs/*.nc filter=lfs diff=lfs merge=lfs -text
-inputs/*.h5 filter=lfs diff=lfs merge=lfs -text
-inputs/*.mat filter=lfs diff=lfs merge=lfs -text
 inputs/**/*.nc filter=lfs diff=lfs merge=lfs -text
 inputs/**/*.h5 filter=lfs diff=lfs merge=lfs -text
 inputs/**/*.mat filter=lfs diff=lfs merge=lfs -text
-RTM_datasets/*.mat filter=lfs diff=lfs merge=lfs -text
 RTM_datasets/**/*.mat filter=lfs diff=lfs merge=lfs -text
-TRAIN_datasets/*.npz filter=lfs diff=lfs merge=lfs -text
 TRAIN_datasets/**/*.npz filter=lfs diff=lfs merge=lfs -text

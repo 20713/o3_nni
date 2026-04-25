@@ -147,14 +147,16 @@ def main():
     ap.add_argument("--ns",type=int,default=25600)
     args=ap.parse_args()
     # 通道与每通道 PCA 维数必须保持一一对应
-    chan=(1,2,3,4,5,6,7)
-    npcChan=(8,9,9,14,18,19,20)
+    chan=(1,2,3,4,5,6,7,8)
+    npcChan=(8,9,9,14,18,19,20,21)
     if args.nc<1 or args.nc>len(chan):
         raise ValueError(f"--nc must be in [1,{len(chan)}], got {args.nc}")
     chan=chan[:args.nc]
+    print(f"use channels {chan}")
+    print(f"use npcChan {npcChan}")
     npcChan=npcChan[:args.nc]
     x,t,l,meta=prepare_pca_features_and_io(args.mat,out_dir=args.out_dir,inorm=args.inorm,nz=args.nz,ns=args.ns,chan=chan,npcChan=npcChan)
-    print({"x_shape":tuple(x.shape),"t_shape":tuple(t.shape),"n_valid":int(l.size),"dataset_path":meta.get("dataset_path")})
+    print({"x_shape":tuple(x.shape),"t_shape":tuple(t.shape),"n_valid":int(l.size),"dataset_path":meta.get("out_traindataset_path")})
 
 if __name__=="__main__":
     main()
