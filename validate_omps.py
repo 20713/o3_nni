@@ -116,7 +116,7 @@ def validate(
     ozaux_path=None,
     model_path=None,
     smooth=10.0,
-    save_pdf=None,
+    output_dir=None,
     show=True,
     iS=2,
     iT_start=1,
@@ -132,26 +132,21 @@ def validate(
     # 4) 计算归一化辐射特征，做 PCA 投影，拼接 sza/saa，输入 NN 得到 O3 VMR(0..60 km)
     # 5) 与 Bremen L2 的 O3 VMR 剖面绘图对比，保存到 PDF
     base=os.path.dirname(__file__)
-    inputs_dir=os.path.join(base,"inputs")
+    inputs_dir=os.path.join(base,"sample_files")
     try:
         os.makedirs(inputs_dir,exist_ok=True)
-    except Exception:
-        pass
-    out_dir=os.path.join(base,"outputs")
-    try:
-        os.makedirs(out_dir,exist_ok=True)
     except Exception:
         pass
 
     # 默认辅助数据/模型文件路径（若未显式指定）
     if ozaux_path is None or not ozaux_path:
-        ozaux_path=os.path.join(out_dir,"ozAux3.npz")
+        ozaux_path=os.path.join(inputs_dir,"ozAux3.npz")
     if model_path is None or not model_path:
-        model_path=os.path.join(out_dir,"model.pt")
+        model_path=os.path.join(inputs_dir,"model.pt")
 
-    # 若未给出输入文件或给出路径不存在，尝试在 inputs_dir 下找默认样例文件
+    # 若未给出输入文件或给出路径不存在，尝试在 sample_files 下找默认样例文件
     if not os.path.exists(omps_l1_path):
-        omps_try=os.path.join(inputs_dir,os.path.basename(omps_l1_path)) if omps_l1_path else os.path.join(inputs_dir,"OMPS-NPP_LP-L1G-EV_v2.6_2016m0301t210605_o22509_2022m1005t174736.h5")
+        omps_try=os.path.join(inputs_dir,os.path.basename(omps_l1_path)) if omps_l1_path else os.path.join(inputs_dir,"OMPS-NPP_LP-L1G-EV_v2.6_2016m0301t224735_o22510_2022m1005t174807.h5")
         if os.path.exists(omps_try):
             omps_l1_path=omps_try
         else:
@@ -169,8 +164,8 @@ def validate(
 
     # ozaux 里保存了归一化高度索引、各通道 PCA 个数、PCA 基、均值谱等
     aux = np.load(ozaux_path)
+    print(f"load ozaux from {ozaux_path}")
     inorm = int(aux["inorm"]) # 归一化参考高度索引（1-based；训练与推理必须一致，通常 inorm=41 对应 40 km）
-    print(f"inorm={inorm}")
     npcChan = aux["npcChan"].astype(int).tolist()
     Uoz = aux["Uoz"]
     YMoz = aux["YMoz"]
@@ -229,12 +224,13 @@ def validate(
                 fig_compare = plt.figure(figsize=(11.69, 8.27))
                 ax1 = fig_compare.add_subplot(1, 2, 1)
                 ax2 = fig_compare.add_subplot(1, 2, 2)
-                # PDF 输出路径：若用户未指定，则使用 OMPS 文件名作为标签，避免覆盖
-                if save_pdf:
-                    pdf_path = save_pdf
-                else:
-                    omps_tag = os.path.splitext(os.path.basename(omps_l1_path))[0]
-                    pdf_path = os.path.join(out_dir, f"ResultCompare_{omps_tag}.pdf")
+                # PDF 输出路径：统一写入 output_dir/<timestamp>/，避免覆盖历史结果
+                output_root = output_dir if (output_dir is not None and str(output_dir).strip()) else os.path.join(base, "validate_omps_output")
+                run_ts = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+                run_out_dir = os.path.join(output_root, run_ts)
+                os.makedirs(run_out_dir, exist_ok=True)
+                omps_tag = os.path.splitext(os.path.basename(omps_l1_path))[0]
+                pdf_path = os.path.join(run_out_dir, f"ResultCompare_{omps_tag}.pdf")
                 pdf = PdfPages(pdf_path)
 
                 # iS：狭缝序号（1-based），转换到 0-based 作为数组索引
@@ -365,12 +361,12 @@ def validate(
 def main():
     # 命令行入口：指定输入文件/模型/参数，输出对比 PDF
     ap = argparse.ArgumentParser()
-    ap.add_argument("--omps", type=str, default="", help="OMPS L1G 输入 HDF5 文件路径（不填则尝试使用 inputs/ 下的默认样例文件）")
-    ap.add_argument("--bremen", type=str, default="", help="Bremen L2 输入 netCDF 文件路径（不填则尝试使用 inputs/ 下的默认样例文件）")
-    ap.add_argument("--ozaux", type=str, default="", help="辅助数据 npz 路径（包含 PCA/归一化等；不填则使用 outputs/ozAux3.npz）")
-    ap.add_argument("--model", type=str, default="", help="训练好的模型文件路径（不填则使用 outputs/model.pt）")
+    ap.add_argument("--omps", type=str, default="", help="OMPS L1G 输入 HDF5 文件路径（不填则使用 sample_files/OMPS-NPP_LP-L1G-EV_v2.6_2016m0301t224735_o22510_2022m1005t174807.h5）")
+    ap.add_argument("--bremen", type=str, default="", help="Bremen L2 输入 netCDF 文件路径（不填则使用 sample_files/ESACCI-OZONE-L2-LP-OMPS_LP_SUOMI_NPP-IUP_UBR_V3_3NLC_UBR_HARMOZ_ALT-201603-fv0005.nc）")
+    ap.add_argument("--ozaux", type=str, default="", help="辅助数据 npz 路径（包含 PCA/归一化等；不填则使用 sample_files/ozAux3.npz）")
+    ap.add_argument("--model", type=str, default="", help="训练好的模型文件路径（不填则使用 sample_files/model.pt）")
     ap.add_argument("--smooth", type=float, default=10.0, help="MATLAB gridfit 的平滑参数（越大越平滑）")
-    ap.add_argument("--save-pdf", type=str, default="", help="对比图输出 PDF 路径（不填则写入 outputs/ResultCompare_<omps文件名>.pdf）")
+    ap.add_argument("--out_dir", type=str, default="", help="验证输出根目录（默认 validate_omps_output/；结果写入该目录下时间戳子目录）")
     ap.add_argument("--no-show", action="store_true", help="不弹出交互式窗口，仅保存 PDF")
     ap.add_argument("--iS", type=int, default=2, help="狭缝序号（1..3），默认取中间狭缝 iS=2")
     ap.add_argument("--start", type=int, default=20, help="沿轨观测序号起始值 iT（1-based，默认 20）")
@@ -383,7 +379,7 @@ def main():
         ozaux_path=(args.ozaux if args.ozaux else None),
         model_path=(args.model if args.model else None),
         smooth=args.smooth,
-        save_pdf=(args.save_pdf if args.save_pdf else None),
+        output_dir=(args.out_dir if args.out_dir else None),
         show=(not args.no_show),
         iS=args.iS,
         iT_start=args.start,

@@ -21,7 +21,7 @@ def load_model(model_path=None,device=None):
         if model_path is None:
             base=os.path.dirname(__file__)
             model_path=os.path.join(base,"outputs","model.pt")
-            print(f"loading model from {model_path}")
+        print(f"loading model from {model_path}")
         obj=torch.load(model_path,map_location=device,weights_only=False)
     except TypeError:
         obj=torch.load(model_path,map_location=device)

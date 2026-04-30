@@ -75,6 +75,7 @@ def save_evaluation_plots(t_te,y_te,out_dir,out_prefix,train_mse,test_mse,test_r
     plt.title(f"true(blue) vs pred(red); n_test={n_te} train_mse={train_mse:.4g} test_mse={test_mse:.4g} test_reg={test_reg:.6f}")
     plt.ylim([0,60])
     plt.savefig(os.path.join(out_dir,f"{out_prefix}_mean_std.png"),dpi=150,bbox_inches="tight")
+    print(f"save {os.path.join(out_dir,f"{out_prefix}_mean_std.png")}")
     dy=y_te-t_te
     p16=np.percentile(dy,16,axis=0)
     p50=np.percentile(dy,50,axis=0)
@@ -89,6 +90,7 @@ def save_evaluation_plots(t_te,y_te,out_dir,out_prefix,train_mse,test_mse,test_r
     plt.title(f"ds=[p84-p16]/2  mean(ds)={dsz.mean():.4g}")
     plt.ylim([0,60])
     plt.savefig(os.path.join(out_dir,f"{out_prefix}_dsz.png"),dpi=150,bbox_inches="tight")
+    print(f"save {os.path.join(out_dir,f"{out_prefix}_dsz.png")}")
     plt.figure(3,figsize=(7,7))
     plt.clf()
     plt.plot(p16,z,"b-",linewidth=2,label="p16")
@@ -101,6 +103,7 @@ def save_evaluation_plots(t_te,y_te,out_dir,out_prefix,train_mse,test_mse,test_r
     plt.legend()
     plt.ylim([0,60])
     plt.savefig(os.path.join(out_dir,f"{out_prefix}_signed_percentiles.png"),dpi=150,bbox_inches="tight")
+    print(f"save {os.path.join(out_dir,f"{out_prefix}_signed_percentiles.png")}")
 
 
 def train_from_data(args):
