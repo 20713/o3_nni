@@ -29,16 +29,16 @@ python -m o3_nni.data_prepare \
   --out_dir ./o3_nni/TRAIN_datasets \
   --nc 7 \
   --inorm 41 \
-  --nz 61 \
-  --ns 25600
+  --nz 61
 ```
+
+Note: data preparation uses all samples that are valid for the selected channels.
 
 关键信息：
 - `--nc`：使用前 nc 个通道（与 `npcChan` 一一对应），默认 `7`
-- `--ns`：使用的样本数（取前 ns 个样本），默认 `25600`
 - `--inorm`：归一化参考层索引（1-based），默认 `41`（约 40 km）
 - `--nz`：使用的高度层数（0..nz-1），默认 `61`
-- 输出文件命名：`trainset_{mat_tag}_nz{nz}_in{inorm}_nch{nc}_ns{ns}_{timestamp}.npz`
+- 输出文件命名：`trainset_{mat_tag}_nz{nz}_in{inorm}_nch{nc}_nvalid{n_valid}_{timestamp}.npz`
 - 输出 npz 同时包含训练集 `x/t` 与 PCA 工件（`Uoz/YMoz/npcChan/chan/inorm/z` 等）
 
 ## 训练
@@ -79,7 +79,7 @@ python -m o3_nni.validate_omps \
   --bremen ./o3_nni/sample_files/ESACCI-OZONE-L2-LP-OMPS_LP_SUOMI_NPP-IUP_UBR_V3_3NLC_UBR_HARMOZ_ALT-201603-fv0005.nc \
   --ozaux ./o3_nni/sample_files/ozAux3.npz \
   --model ./o3_nni/sample_files/model.pt \
-  --no-show --smooth 10 --out_dir ./o3_nni/validate_omps
+  --no-show --smooth 10 --out_dir ./o3_nni/validate_omps_output
 ```
 
 说明：

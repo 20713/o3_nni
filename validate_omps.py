@@ -29,8 +29,8 @@ def _gridfit_makima_engine(z0, wl0, rad_zwl, zq, lam, eng, smooth, project_root,
     # 将单次观测的辐射场（高度×波长）映射到统一网格（zq×lam）上，并在内部使用对数辐射。
     #
     # 输入：
-    # - z0: 1D，高度坐标（观测本身的切点高度；长度通常 101）
-    # - wl0: 1D，波长坐标（观测本身的波长网格；长度通常 266）
+    # - z0: 1D，高度坐标（观测本身的切点高度；长度通常 101(0,...100)）
+    # - wl0: 1D，波长坐标（观测本身的波长网格；长度通常 266(...)）
     # - rad_zwl: 2D，高度×波长的辐射（shape 通常为 (101, 266)）
     # - zq: 1D，目标高度网格（例如 0..60 km；长度 61）
     # - lam: 1D，目标波长通道（例如 7 个通道）
@@ -166,15 +166,19 @@ def validate(
     aux = np.load(ozaux_path)
     print(f"load ozaux from {ozaux_path}")
     inorm = int(aux["inorm"]) # 归一化参考高度索引（1-based；训练与推理必须一致，通常 inorm=41 对应 40 km）
+    print(f"use inorm:{inorm}")
     npcChan = aux["npcChan"].astype(int).tolist()
+    print(f"use npcChan:{npcChan}")
     Uoz = aux["Uoz"]
     YMoz = aux["YMoz"]
 
     # ONNI 使用的 7 个通道中心波长（单位与 wl0 统一：nm）
-    lam = np.array([300, 315, 351, 525, 600, 675, 745], dtype=float)
+    lam = aux["wav_chan"]#wav_chan=np.array([300, 315, 351, 525, 600, 675, 745], dtype=float)
+    print(f"use wav_chan:{lam}")
     # 目标高度网格：0..60 km，共 61 层（与 NN 输出维度一致）
-    lz = np.arange(61) # (61,）
+    lz = aux["z"]  # (61,）默认是0 ... nz-1 km）
     zq = lz.astype(float)
+    print(f"use altitude:{zq}")
 
     # 加载训练好的网络 + scaler（推理需要一致的选列与缩放）
     ctx = load_model(model_path=model_path)
@@ -302,6 +306,8 @@ def validate(
                         ozvmr = np.asarray(1e12 * noz / nair, dtype=float).reshape(-1)
                         # Bremen 高度轴（61）
                         tgh1 = np.asarray(tghB, dtype=float).reshape(-1)
+                        print("tgh1:",tgh1)
+                        print("lz:",lz)
 
                         # 左图：Bremen（黑） vs ONNI（红）臭氧剖面对比
                         ax1.clear()
@@ -350,6 +356,7 @@ def validate(
                     plt.show()
                 else:
                     plt.close(fig_compare)
+                print(f"save {pdf_path}")
     finally:
         try:
             # 关闭 MATLAB 引擎（释放资源）
@@ -386,7 +393,5 @@ def main():
         iT_stop=args.stop,
         iT_step=args.step,
     )
-
-
 if __name__ == "__main__":
     main()

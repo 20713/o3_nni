@@ -2,48 +2,13 @@ import numpy as np
 import torch
 from torch import nn
 from torch.utils.data import DataLoader,TensorDataset
-import matplotlib.pyplot as plt
 import argparse
 import os
 from .data_prepare import prepare_pca_features_and_io
+from .eval_plots import save_evaluation_plots
+from .net import Net
+from .scalers import MapMinMax
 from datetime import datetime
-class MapMinMax:
-    def __init__(self,remove_constant=True):
-        self.remove_constant=remove_constant
-        self.mask=None
-        self.xmin=None
-        self.scale=None
-    def fit(self,X):
-        xmin=X.min(axis=0)
-        xmax=X.max(axis=0)
-        if self.remove_constant:
-            mask=(xmax>xmin)
-        else:
-            mask=np.ones_like(xmax,dtype=bool)
-        self.mask=mask
-        self.xmin=xmin[mask]
-        rng=xmax[mask]-xmin[mask]
-        rng_safe=np.where(rng==0,1.0,rng)
-        self.scale=2.0/rng_safe
-        return self
-    def transform(self,X):
-        X2=X[:,self.mask]
-        Y=X2-self.xmin
-        Y=Y*self.scale
-        Y=Y-1.0
-        return Y
-class Net(nn.Module):
-    def __init__(self,in_dim,out_dim=61,hid1=101,hid2=101):
-        super().__init__()
-        self.net=nn.Sequential(
-            nn.Linear(in_dim,hid1),
-            nn.Tanh(),
-            nn.Linear(hid1,hid2),
-            nn.Tanh(),
-            nn.Linear(hid2,out_dim)
-        )
-    def forward(self,x):
-        return self.net(x)
 def load_prepared_npz(data_path):
     obj=np.load(data_path,allow_pickle=True)
     if "x" in obj and "t" in obj:
@@ -52,62 +17,9 @@ def load_prepared_npz(data_path):
         return x,t
     raise ValueError(f"npz {data_path} must contain keys 'x' and 't'")
 
-
-def save_evaluation_plots(t_te,y_te,out_dir,out_prefix,train_mse,test_mse,test_reg):
-    os.makedirs(out_dir,exist_ok=True)
-    z=np.arange(t_te.shape[1],dtype=float)
-    t_mean=t_te.mean(axis=0)
-    t_std=t_te.std(axis=0)
-    y_mean=y_te.mean(axis=0)
-    y_std=y_te.std(axis=0)
-    n_te=t_te.shape[0]
-    plt.figure(1,figsize=(7,7))
-    plt.clf()
-    plt.plot(t_mean,z,"ob")
-    plt.plot(y_mean,z,"r-",linewidth=2)
-    plt.plot(t_mean+t_std,z,"ob",linewidth=1)
-    plt.plot(t_mean-t_std,z,"ob",linewidth=1)
-    plt.plot(y_mean+y_std,z,"r-",linewidth=1)
-    plt.plot(y_mean-y_std,z,"r-",linewidth=1)
-    plt.grid(True,which="both",alpha=0.3)
-    plt.xlabel("O$_3$ vmr")
-    plt.ylabel("z [km]")
-    plt.title(f"true(blue) vs pred(red); n_test={n_te} train_mse={train_mse:.4g} test_mse={test_mse:.4g} test_reg={test_reg:.6f}")
-    plt.ylim([0,60])
-    plt.savefig(os.path.join(out_dir,f"{out_prefix}_mean_std.png"),dpi=150,bbox_inches="tight")
-    print(f"save {os.path.join(out_dir,f"{out_prefix}_mean_std.png")}")
-    dy=y_te-t_te
-    p16=np.percentile(dy,16,axis=0)
-    p50=np.percentile(dy,50,axis=0)
-    p84=np.percentile(dy,84,axis=0)
-    dsz=0.5*(p84-p16)
-    plt.figure(2,figsize=(7,7))
-    plt.clf()
-    plt.plot(dsz,z,"k-",linewidth=2)
-    plt.grid(True,which="both",alpha=0.3)
-    plt.xlabel("ds [ppm]")
-    plt.ylabel("z [km]")
-    plt.title(f"ds=[p84-p16]/2  mean(ds)={dsz.mean():.4g}")
-    plt.ylim([0,60])
-    plt.savefig(os.path.join(out_dir,f"{out_prefix}_dsz.png"),dpi=150,bbox_inches="tight")
-    print(f"save {os.path.join(out_dir,f"{out_prefix}_dsz.png")}")
-    plt.figure(3,figsize=(7,7))
-    plt.clf()
-    plt.plot(p16,z,"b-",linewidth=2,label="p16")
-    plt.plot(p50,z,"g-",linewidth=2,label="p50 (median)")
-    plt.plot(p84,z,"r-",linewidth=2,label="p84")
-    plt.grid(True,which="both",alpha=0.3)
-    plt.xlabel("signed error [ppm]")
-    plt.ylabel("z [km]")
-    plt.title(f"signed error profile (test): p16/p50/p84; med(p50)={np.median(p50):.4g}")
-    plt.legend()
-    plt.ylim([0,60])
-    plt.savefig(os.path.join(out_dir,f"{out_prefix}_signed_percentiles.png"),dpi=150,bbox_inches="tight")
-    print(f"save {os.path.join(out_dir,f"{out_prefix}_signed_percentiles.png")}")
-
-
 def train_from_data(args):
     inp,out=load_prepared_npz(args.data_path)
+    print(f"loaded {args.data_path}")
     np.random.seed(int(args.seed))
     torch.manual_seed(int(args.seed))
     device=args.device if (args.device is not None and str(args.device).strip()!="") else ("cuda" if torch.cuda.is_available() else "cpu")
@@ -118,11 +30,11 @@ def train_from_data(args):
     n=x_scaled.shape[0]
     i1=int(0.70*n)
     i2=int(0.85*n)
-    x_tr=x_scaled[:i1]
-    t_tr=t_scaled[:i1]
-    x_va=x_scaled[i1:i2]
+    x_tr=x_scaled[:i1] #x表示输入特征，tr表示训练集
+    t_tr=t_scaled[:i1] #t表示目标特征
+    x_va=x_scaled[i1:i2]#va表示验证集
     t_va=t_scaled[i1:i2]
-    x_te=x_scaled[i2:]
+    x_te=x_scaled[i2:]#te表示测试集
     t_te=t_scaled[i2:]
     ds_tr=TensorDataset(torch.from_numpy(x_tr).float(),torch.from_numpy(t_tr).float())
     ds_va=TensorDataset(torch.from_numpy(x_va).float(),torch.from_numpy(t_va).float())
@@ -130,6 +42,11 @@ def train_from_data(args):
     dl_tr=DataLoader(ds_tr,batch_size=args.batch_size,shuffle=False)
     dl_va=DataLoader(ds_va,batch_size=args.batch_size,shuffle=False)
     net=Net(x_tr.shape[1]).to(device)
+    print("model architecture:")
+    print(net)
+    total_params=sum(p.numel() for p in net.parameters())
+    trainable_params=sum(p.numel() for p in net.parameters() if p.requires_grad)
+    print(f"model params: total={total_params:,}, trainable={trainable_params:,}")
     opt=torch.optim.Adam(net.parameters(),lr=args.lr)
     loss_fn=nn.MSELoss()
     best_va=np.inf
@@ -233,9 +150,8 @@ def main():
     ap.add_argument("--out_dir",type=str,default="./o3_nni/TRAIN_outputs")
     ap.add_argument("--device",type=str,default="cuda:0")
     ap.add_argument("--lr",type=float,default=1e-3)
-    ap.add_argument("--batch_size",type=int,default=512)
+    ap.add_argument("--batch_size",type=int,default=1024)
     ap.add_argument("--seed",type=int,default=0)
-
     args=ap.parse_args()
     res=train_from_data(args)
     print(res)
