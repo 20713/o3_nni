@@ -356,7 +356,7 @@ def main():
                     help="Bremen L2 输入 netCDF 文件路径")
     ap.add_argument("--pca_config", type=str, 
                     default=os.path.join(inputs_dir, "ozAux3.npz"), 
-                    help="特征提取与PCA配置路径 (npz文件，包含所选波段、归一化以及PCA基等，由data_prepare.py生成)")
+                    help="特征提取与PCA配置路径 (npz文件，包含所选波段wav_chan、归一化高度inorm以及PCA基等，由data_prepare.py生成)")
     ap.add_argument("--model", type=str, 
                     default=os.path.join(inputs_dir, "model.pt"), 
                     help="训练好的模型文件路径")
