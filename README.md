@@ -10,12 +10,13 @@
   - `TRAIN_datasets/`：数据准备脚本默认输出目录（可用 `--out_dir` 指定）
   - `TRAIN_outputs/`：训练输出目录（默认），按时间戳保存 `model.pt` 与评估图片
   - `sample_files/`：保留的输入示例目录（部分脚本仍可使用）
-  - `outputs/`：评估输出目录（主要用于独立评估脚本）
   - `validate_omps_output/`：`validate_omps.py` 默认输出根目录（按时间戳建子目录保存 PDF）
   - `data_prepare.py`：从 `.mat` 生成训练数据集 npz（包含 x/t 与 PCA 工件）
   - `model_train.py`：两层 MLP 训练，保存 `model.pt`
-  - `infer.py`：加载模型并推断
-  - `evaluate_plots.py`：基于训练数据做整体评估出图
+  - `net.py`：统一的网络结构定义（训练/推断/验证共用）
+  - `scalers.py`：归一化/反归一化相关（`MapMinMax`）
+  - `eval_plots.py`：评估绘图公共函数（训练/验证可复用）
+  - `infer.py`：加载模型并推断（`load_model` 需要显式提供 `model_path`）
   - `validate_omps.py`：OMPS L1 + Bremen L2 对照验证（MATLAB Engine：`gridfit` + `interp2('makima')`）
   - `gridfit.m`：MATLAB `gridfit` 实现
 
@@ -27,7 +28,7 @@
 python -m o3_nni.data_prepare \
   --mat ./o3_nni/RTM_datasets/run_20260307_110701_SmartG_OutputXY_For_NNtrain.mat \
   --out_dir ./o3_nni/TRAIN_datasets \
-  --nc 7 \
+  --chan 1,2,3,4,5,6,7 \
   --inorm 41 \
   --nz 61
 ```
@@ -35,11 +36,11 @@ python -m o3_nni.data_prepare \
 Note: data preparation uses all samples that are valid for the selected channels.
 
 关键信息：
-- `--nc`：使用前 nc 个通道（与 `npcChan` 一一对应），默认 `7`
+- `--chan`：离散通道选择（1-based），例如 `1,2,4,7,8`
 - `--inorm`：归一化参考层索引（1-based），默认 `41`（约 40 km）
 - `--nz`：使用的高度层数（0..nz-1），默认 `61`
-- 输出文件命名：`trainset_{mat_tag}_nz{nz}_in{inorm}_nch{nc}_nvalid{n_valid}_{timestamp}.npz`
-- 输出 npz 同时包含训练集 `x/t` 与 PCA 工件（`Uoz/YMoz/npcChan/chan/inorm/z` 等）
+- 输出文件命名：`trainset_{mat_tag}_nz{nz}_in{inorm}_nch{len(chan)}_wav{wav_tag}_ns{n_valid}_{timestamp}.npz`
+- 输出 npz 同时包含训练集 `x/t` 与 PCA 工件（`Uoz/YMoz/npcChan/chan/wav_chan/inorm/z` 等）
 
 ## 训练
 
@@ -54,20 +55,10 @@ python -m o3_nni.model_train --data_path ./o3_nni/TRAIN_datasets/trainset_...npz
 - `o3_nni/TRAIN_outputs/{timestamp}/nni_py_mean_std.png`
 - `o3_nni/TRAIN_outputs/{timestamp}/nni_py_dsz.png`
 - `o3_nni/TRAIN_outputs/{timestamp}/nni_py_signed_percentiles.png`
+- `o3_nni/TRAIN_outputs/{timestamp}/nni_py_bias_mae_rmse.png`
 
 说明：
-- `model_train.py` 在训练结束后会自动生成上述 3 张评估图（前缀固定为 `nni_py`，无需额外参数）。
-
-## 独立评估出图（可选）
-
-```bash
-python -m o3_nni.evaluate_plots --mat ./o3_nni/RTM_datasets/run_20260307_110701_SmartG_OutputXY_For_NNtrain.mat --model ./o3_nni/TRAIN_outputs/{timestamp}/model.pt --out nni_py
-```
-
-输出：
-- `o3_nni/outputs/nni_py_mean_std.png`
-- `o3_nni/outputs/nni_py_dsz.png`
-- `o3_nni/outputs/nni_py_signed_percentiles.png`
+- `model_train.py` 在训练结束后会自动生成上述评估图（前缀固定为 `nni_py`，无需额外参数）。
 
 ## OMPS 对照验证（导出 PDF）
 
@@ -92,5 +83,5 @@ python -m o3_nni.validate_omps \
 ## 运行位置与依赖
 
 - 在包含 `o3_nni/` 的上一级目录运行模块命令，例如 `python -m o3_nni.data_prepare ...`
-- 需要 Python 与相关依赖（`numpy/scipy/torch/matplotlib/h5py/netCDF4` 等）
+- 需要 Python 与相关依赖（`numpy/scipy/torch/matplotlib/h5py/netCDF4/pandas` 等）
 - 运行 OMPS 验证需要 MATLAB Engine（用于 `gridfit` 与 `interp2('makima')`）
