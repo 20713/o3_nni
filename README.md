@@ -6,18 +6,18 @@
 ## 目录结构
 
 - `o3_nni/`
-  - `RTM_datasets/`：默认训练 `.mat` 路径所在目录（可自定义）
-  - `TRAIN_datasets/`：数据准备脚本默认输出目录（可用 `--out_dir` 指定）
-  - `TRAIN_outputs/`：训练输出目录（默认），按时间戳保存 `model.pt` 与评估图片
+  - `RTM_datasets/`：SmartG模拟生产的大规模 `.mat` 格式数据集所在目录
+  - `TRAIN_datasets/`：数据准备脚本`data_prepare.py` 默认输出目录（可用 `--out_dir` 指定）
+  - `TRAIN_outputs/`：模型训练脚本`model_train.py` 默认输出根目录，按时间戳保存 `model.pt` 与评估图片（可用 `--out_dir` 指定）
   - `sample_files/`：保留的输入示例目录（部分脚本仍可使用）
-  - `validate_omps_output/`：`validate_omps.py` 默认输出根目录（按时间戳建子目录保存 PDF）
-  - `data_prepare.py`：从 `.mat` 生成训练数据集 npz（包含 x/t 与 PCA 工件）
-  - `model_train.py`：两层 MLP 训练，保存 `model.pt`
+  - `validate_omps_output/`：omps卫星数据验证脚本`validate_omps.py` 默认输出根目录，按时间戳建子目录保存所反演的廓线对比PDF（可用 `--out_dir` 指定）
+  - `data_prepare.py`：从 `.mat` 生成训练数据集 npz（包含 x/t 与 PCA 工件），默认输出目录为 `./o3_nni/TRAIN_datasets`
+  - `model_train.py`：两层 MLP 训练，保存 `model.pt` 与评估图片，默认输出目录为 `./o3_nni/TRAIN_outputs`
+  - `validate_omps.py`：OMPS L1 + Bremen L2 对照验证（MATLAB Engine：`gridfit` + `interp2('makima')`），默认输出目录为 `./o3_nni/validate_omps_output`
   - `net.py`：统一的网络结构定义（训练/推断/验证共用）
   - `scalers.py`：归一化/反归一化相关（`MapMinMax`）
   - `eval_plots.py`：评估绘图公共函数（训练/验证可复用）
   - `infer.py`：加载模型并推断（`load_model` 需要显式提供 `model_path`）
-  - `validate_omps.py`：OMPS L1 + Bremen L2 对照验证（MATLAB Engine：`gridfit` + `interp2('makima')`）
   - `gridfit.m`：MATLAB `gridfit` 实现
 
 ## 数据准备（生成训练数据集 npz）
