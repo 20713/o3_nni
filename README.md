@@ -74,9 +74,8 @@ python -m o3_nni.validate_omps \
 ```
 
 说明：
-- `--pca_config` 可直接指定上一步生成的训练数据集 npz，因为其中已包含 `inorm/npcChan/Uoz/YMoz` 等工件
-- `--pca_config` 不填时默认使用 `./o3_nni/sample_files/ozAux3.npz`
-- `--model` 不填时默认使用 `./o3_nni/sample_files/model.pt`
+- `--pca_config` 可直接指定为`data_prepare.py`生成的训练数据集 npz，因为其中已包含 `inorm/npcChan/Uoz/YMoz` 等工件(默认为`./o3_nni/sample_files/ozAux3.npz`)
+- `--model` 可直接指定为训练脚本生成的 `model.pt`(默认使用 `./o3_nni/sample_files/model.pt`)
 - `--out_dir` 不填时默认写入 `./o3_nni/validate_omps_output/{timestamp}/`
 - 每个 iT 输出一页 PDF：左侧 O3 剖面（BREMEN vs ONNI），右侧为通道辐射的重构曲线与观测散点
 
