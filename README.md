@@ -68,14 +68,14 @@ python -m o3_nni.model_train --data_path ./o3_nni/TRAIN_datasets/trainset_...npz
 python -m o3_nni.validate_omps \
   --omps ./o3_nni/sample_files/OMPS-NPP_LP-L1G-EV_v2.6_2016m0301t224735_o22510_2022m1005t174807.h5 \
   --bremen ./o3_nni/sample_files/ESACCI-OZONE-L2-LP-OMPS_LP_SUOMI_NPP-IUP_UBR_V3_3NLC_UBR_HARMOZ_ALT-201603-fv0005.nc \
-  --ozaux ./o3_nni/sample_files/ozAux3.npz \
+  --pca_config ./o3_nni/sample_files/ozAux3.npz \
   --model ./o3_nni/sample_files/model.pt \
   --no-show --smooth 10 --out_dir ./o3_nni/validate_omps_output
 ```
 
 说明：
-- `--ozaux` 可直接指定上一步生成的训练数据集 npz，因为其中已包含 `inorm/npcChan/Uoz/YMoz` 等工件
-- `--ozaux` 不填时默认使用 `./o3_nni/sample_files/ozAux3.npz`
+- `--pca_config` 可直接指定上一步生成的训练数据集 npz，因为其中已包含 `inorm/npcChan/Uoz/YMoz` 等工件
+- `--pca_config` 不填时默认使用 `./o3_nni/sample_files/ozAux3.npz`
 - `--model` 不填时默认使用 `./o3_nni/sample_files/model.pt`
 - `--out_dir` 不填时默认写入 `./o3_nni/validate_omps_output/{timestamp}/`
 - 每个 iT 输出一页 PDF：左侧 O3 剖面（BREMEN vs ONNI），右侧为通道辐射的重构曲线与观测散点

@@ -111,10 +111,10 @@ def _gridfit_makima_engine(z0, wl0, rad_zwl, zq, lam, eng, smooth, project_root,
     return log_on_altius
 
 def validate(
-    omps_l1_path="",
-    bremen_l2_path="",
-    ozaux_path=None,
-    model_path=None,
+    omps_l1_path,
+    bremen_l2_path,
+    pca_config_path,
+    model_path,
     smooth=10.0,
     output_dir=None,
     show=True,
@@ -132,39 +132,15 @@ def validate(
     # 4) 计算归一化辐射特征，做 PCA 投影，拼接 sza/saa，输入 NN 得到 O3 VMR(0..60 km)
     # 5) 与 Bremen L2 的 O3 VMR 剖面绘图对比，保存到 PDF
     base=os.path.dirname(__file__)
-    inputs_dir=os.path.join(base,"sample_files")
-    try:
-        os.makedirs(inputs_dir,exist_ok=True)
-    except Exception:
-        pass
 
-    # 默认辅助数据/模型文件路径（若未显式指定）
-    if ozaux_path is None or not ozaux_path:
-        ozaux_path=os.path.join(inputs_dir,"ozAux3.npz")
-    if model_path is None or not model_path:
-        model_path=os.path.join(inputs_dir,"model.pt")
+    # 严格校验文件是否存在
+    for path in [omps_l1_path, bremen_l2_path, pca_config_path, model_path]:
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"无法找到文件: {path}")
 
-    # 若未给出输入文件或给出路径不存在，尝试在 sample_files 下找默认样例文件
-    if not os.path.exists(omps_l1_path):
-        omps_try=os.path.join(inputs_dir,os.path.basename(omps_l1_path)) if omps_l1_path else os.path.join(inputs_dir,"OMPS-NPP_LP-L1G-EV_v2.6_2016m0301t224735_o22510_2022m1005t174807.h5")
-        if os.path.exists(omps_try):
-            omps_l1_path=omps_try
-        else:
-            raise FileNotFoundError(omps_l1_path)
-    if not os.path.exists(bremen_l2_path):
-        bremen_try=os.path.join(inputs_dir,os.path.basename(bremen_l2_path)) if bremen_l2_path else os.path.join(inputs_dir,"ESACCI-OZONE-L2-LP-OMPS_LP_SUOMI_NPP-IUP_UBR_V3_3NLC_UBR_HARMOZ_ALT-201603-fv0005.nc")
-        if os.path.exists(bremen_try):
-            bremen_l2_path=bremen_try
-        else:
-            raise FileNotFoundError(bremen_l2_path)
-    if not os.path.exists(ozaux_path):
-        raise FileNotFoundError(ozaux_path)
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(model_path)
-
-    # ozaux 里保存了归一化高度索引、各通道 PCA 个数、PCA 基、均值谱等
-    aux = np.load(ozaux_path)
-    print(f"load ozaux from {ozaux_path}")
+    # pca_config_path 里保存了归一化高度索引、各通道 PCA 个数、PCA 基、均值谱等
+    aux = np.load(pca_config_path)
+    print(f"load pca config from {pca_config_path}")
     inorm = int(aux["inorm"]) # 归一化参考高度索引（1-based；训练与推理必须一致，通常 inorm=41 对应 40 km）
     print(f"use inorm:{inorm}")
     npcChan = aux["npcChan"].astype(int).tolist()
@@ -204,7 +180,7 @@ def validate(
             tempB = np.asarray(bremen.variables["temperature_ecmwf"][:]) #(dim_time=52371, dim_altitude=61)
             presB = np.asarray(bremen.variables["pressure"][:]) #(dim_time=52371, dim_altitude=61)
             # Bremen 的高度轴（61 层）
-            tghB = np.asarray(bremen.variables["altitude"][:]) #(dim_altitude=61) [5,1,66]
+            tghB = np.asarray(bremen.variables["altitude"][:]) #(dim_altitude=61) [5,1,65]
 
             with h5py.File(omps_l1_path, "r") as f:
                 print("load omps data from",omps_l1_path)
@@ -367,31 +343,45 @@ def validate(
 
 def main():
     # 命令行入口：指定输入文件/模型/参数，输出对比 PDF
+    base = os.path.dirname(__file__)
+    inputs_dir = os.path.join(base, "sample_files")
+    default_out = os.path.join(base, "validate_omps_output")
+    
     ap = argparse.ArgumentParser()
-    ap.add_argument("--omps", type=str, default="", help="OMPS L1G 输入 HDF5 文件路径（不填则使用 sample_files/OMPS-NPP_LP-L1G-EV_v2.6_2016m0301t224735_o22510_2022m1005t174807.h5）")
-    ap.add_argument("--bremen", type=str, default="", help="Bremen L2 输入 netCDF 文件路径（不填则使用 sample_files/ESACCI-OZONE-L2-LP-OMPS_LP_SUOMI_NPP-IUP_UBR_V3_3NLC_UBR_HARMOZ_ALT-201603-fv0005.nc）")
-    ap.add_argument("--ozaux", type=str, default="", help="辅助数据 npz 路径（包含 PCA/归一化等；不填则使用 sample_files/ozAux3.npz）")
-    ap.add_argument("--model", type=str, default="", help="训练好的模型文件路径（不填则使用 sample_files/model.pt）")
+    ap.add_argument("--omps", type=str, 
+                    default=os.path.join(inputs_dir, "OMPS-NPP_LP-L1G-EV_v2.6_2016m0301t224735_o22510_2022m1005t174807.h5"), 
+                    help="OMPS L1G 输入 HDF5 文件路径")
+    ap.add_argument("--bremen", type=str, 
+                    default=os.path.join(inputs_dir, "ESACCI-OZONE-L2-LP-OMPS_LP_SUOMI_NPP-IUP_UBR_V3_3NLC_UBR_HARMOZ_ALT-201603-fv0005.nc"), 
+                    help="Bremen L2 输入 netCDF 文件路径")
+    ap.add_argument("--pca_config", type=str, 
+                    default=os.path.join(inputs_dir, "ozAux3.npz"), 
+                    help="特征提取与PCA配置路径 (npz文件，包含所选波段、归一化以及PCA基等，由data_prepare.py生成)")
+    ap.add_argument("--model", type=str, 
+                    default=os.path.join(inputs_dir, "model.pt"), 
+                    help="训练好的模型文件路径")
     ap.add_argument("--smooth", type=float, default=10.0, help="MATLAB gridfit 的平滑参数（越大越平滑）")
-    ap.add_argument("--out_dir", type=str, default="", help="验证输出根目录（默认 validate_omps_output/；结果写入该目录下时间戳子目录）")
+    ap.add_argument("--out_dir", type=str, default=default_out, help="验证输出根目录（结果写入该目录下时间戳子目录）")
     ap.add_argument("--no-show", action="store_true", help="不弹出交互式窗口，仅保存 PDF")
     ap.add_argument("--iS", type=int, default=2, help="狭缝序号（1..3），默认取中间狭缝 iS=2")
     ap.add_argument("--start", type=int, default=20, help="沿轨观测序号起始值 iT（1-based，默认 20）")
     ap.add_argument("--stop", type=int, default=162, help="沿轨观测序号结束值 iT（1-based，默认 162）")
     ap.add_argument("--step", type=int, default=1, help="沿轨观测序号步长（默认 1）")
     args = ap.parse_args()
+    
     validate(
         omps_l1_path=args.omps,
         bremen_l2_path=args.bremen,
-        ozaux_path=(args.ozaux if args.ozaux else None),
-        model_path=(args.model if args.model else None),
+        pca_config_path=args.pca_config,
+        model_path=args.model,
         smooth=args.smooth,
-        output_dir=(args.out_dir if args.out_dir else None),
+        output_dir=args.out_dir,
         show=(not args.no_show),
         iS=args.iS,
         iT_start=args.start,
         iT_stop=args.stop,
         iT_step=args.step,
     )
+
 if __name__ == "__main__":
     main()
