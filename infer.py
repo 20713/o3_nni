@@ -26,10 +26,30 @@ def load_model(model_path=None,device=None):
     net.eval()
     return {"net":net,"device":device,"x_mask":x_mask,"x_xmin":x_xmin,"x_scale":x_scale,"t_mask":t_mask,"t_xmin":t_xmin,"t_scale":t_scale}
     
-def predict(x,ctx):
-    x2=x[:,ctx["x_mask"]]  # 推理时仅选择训练阶段使用的特征列
-    y=(x2-ctx["x_xmin"])*ctx["x_scale"]-1.0
+# def predict(x,ctx):
+#     x2=x[:,ctx["x_mask"]]  # 推理时仅选择训练阶段使用的特征列
+#     y=(x2-ctx["x_xmin"])*ctx["x_scale"]-1.0
+#     print(np.nanmin(y), np.nanmax(y))
+#     print(np.mean((y < -1) | (y > 1)))
+#     with torch.no_grad():
+#         yp=ctx["net"](torch.from_numpy(y).float().to(ctx["device"])).cpu().numpy()
+#     o=(yp+1.0)/ctx["t_scale"]+ctx["t_xmin"]
+#     return o
+
+def predict(x, ctx):
+    x2 = x[:, ctx["x_mask"]]
+    y = (x2 - ctx["x_xmin"]) * ctx["x_scale"] - 1.0
+
+    bad = (y < -1) | (y > 1)
+    print("scaled min/max:", np.nanmin(y), np.nanmax(y))
+    print("out-of-range ratio:", np.mean(bad))
+
+    bad_idx = np.where(bad[0])[0]
+    print("bad feature idx:", bad_idx)
+    print("bad feature values:", y[0, bad_idx])
+
     with torch.no_grad():
-        yp=ctx["net"](torch.from_numpy(y).float().to(ctx["device"])).cpu().numpy()
-    o=(yp+1.0)/ctx["t_scale"]+ctx["t_xmin"]
+        yp = ctx["net"](torch.from_numpy(y).float().to(ctx["device"])).cpu().numpy()
+
+    o = (yp + 1.0) / ctx["t_scale"] + ctx["t_xmin"]
     return o

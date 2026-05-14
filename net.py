@@ -2,7 +2,7 @@ from torch import nn
 
 
 class Net(nn.Module):
-    def __init__(self,in_dim,out_dim=61,hid1=256,hid2=128):
+    def __init__(self,in_dim,out_dim=61,hid1=61,hid2=61):
         super().__init__()
         self.net=nn.Sequential(
             nn.Linear(in_dim,hid1),

@@ -39,7 +39,9 @@ Note: data preparation uses all samples that are valid for the selected channels
 - `--chan`：离散通道选择（1-based），例如 `1,2,4,7,8`
 - `--inorm`：归一化参考层索引（1-based），默认 `41`（约 40 km）
 - `--nz`：使用的高度层数（0..nz-1），默认 `61`
-- 输出文件命名：`trainset_{mat_tag}_nz{nz}_in{inorm}_nch{len(chan)}_wav{wav_tag}_ns{n_valid}_{timestamp}.npz`
+- 输出文件命名：`trainset_{mat_tag}_nz{nz}_in{inorm}_nch{len(chan)}_pc{pc_sum}_{pc_per_chan}_wav{wav_tag}_ns{n_valid}_{timestamp}.npz`
+  - `pc_sum`：所选通道对应的 `npcChan` 总和
+  - `pc_per_chan`：所选通道对应的 `npcChan` 列表（用 `-` 连接，例如 `5-6-6-10-10-10-10`）
 - 输出 npz 同时包含训练集 `x/t` 与 PCA 工件（`Uoz/YMoz/npcChan/chan/wav_chan/inorm/z` 等）
 
 ## 训练
@@ -48,6 +50,20 @@ Note: data preparation uses all samples that are valid for the selected channels
 
 ```bash
 python -m o3_nni.model_train --data_path ./o3_nni/TRAIN_datasets/trainset_...npz --epochs 2000
+```
+
+可选：启用学习率调度（当验证集损失进入平台期时自动降学习率）：
+
+```bash
+python -m o3_nni.model_train \
+  --data_path ./o3_nni/TRAIN_datasets/trainset_...npz \
+  --epochs 2000 \
+  --lr 1e-3 \
+  --weight_decay 1e-4 \
+  --lr_scheduler plateau \
+  --lr_factor 0.5 \
+  --lr_patience 50 \
+  --min_lr 1e-6
 ```
 
 输出（同一时间戳目录）：
@@ -59,6 +75,7 @@ python -m o3_nni.model_train --data_path ./o3_nni/TRAIN_datasets/trainset_...npz
 
 说明：
 - `model_train.py` 在训练结束后会自动生成上述评估图（前缀固定为 `nni_py`，无需额外参数）。
+- `--lr_scheduler plateau` 使用验证集 `va_loss` 触发降学习率；`lr_patience` 与训练早停（early stop）的 patience 相互独立。
 
 ## OMPS 对照验证（导出 PDF）
 
@@ -78,6 +95,11 @@ python -m o3_nni.validate_omps \
 - `--model` 可直接指定为训练脚本生成的 `model.pt`(默认使用 `./o3_nni/sample_files/model.pt`)
 - `--out_dir` 不填时默认写入 `./o3_nni/validate_omps_output/{timestamp}/`
 - 每个 iT 输出一页 PDF：左侧 O3 剖面（BREMEN vs ONNI），右侧为通道辐射的重构曲线与观测散点
+- 额外输出一组汇总评估图（统一高度网格为 15–45 km）：
+  - `omps_eval_15_45km_mean_std.png`
+  - `omps_eval_15_45km_dsz.png`
+  - `omps_eval_15_45km_signed_percentiles.png`
+  - `omps_eval_15_45km_bias_mae_rmse.png`
 
 ## 运行位置与依赖
 

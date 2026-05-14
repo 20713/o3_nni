@@ -48,12 +48,13 @@ def prepare_pca_features_and_io(mat_path,inorm=41,chan=(1,2,3,4,5,6,7),npcChan=(
     if bad:
         raise ValueError(f"chan contains unsupported ids {bad}; allowed: {all_chan}")
     npc_base=tuple(int(v) for v in npcChan)
-    if len(npc_base)==len(chan):
+    max_chan=int(max(chan))
+    if len(npc_base)>=max_chan:
+        npcChan=tuple(npc_base[c-1] for c in chan)
+    elif len(npc_base)==len(chan):
         npcChan=npc_base
     else:
-        if int(max(chan))>len(npc_base):
-            raise ValueError(f"npcChan length={len(npc_base)} is not enough for selected chan={chan}")
-        npcChan=tuple(npc_base[c-1] for c in chan)
+        raise ValueError(f"npcChan length={len(npc_base)} is not compatible with selected chan={chan}")
     chan_idx=np.array(chan,dtype=int)-1
     if int(chan_idx.max())>=wav_arr.shape[0] or int(chan_idx.min())<0:
         raise ValueError(f"chan indices out of WAV range: chan={chan}, wav_len={wav_arr.shape[0]}")
@@ -102,7 +103,10 @@ def prepare_pca_features_and_io(mat_path,inorm=41,chan=(1,2,3,4,5,6,7),npcChan=(
     ts=datetime.now().strftime("%Y%m%d_%H%M%S")
     wav_tokens=[f"{float(w):.3f}".rstrip("0").rstrip(".").replace("-", "m").replace(".", "p") for w in wav_chan]
     wav_tag="-".join(wav_tokens)
-    dataset_name=f"trainset_{mat_tag}_nz{nz}_in{inorm}_nch{len(chan)}_wav{wav_tag}_ns{n_valid}_{ts}.npz"
+    pc_per_chan_tag="-".join(str(int(v)) for v in npcChan)
+    pc_sum_tag=str(int(np.sum(np.asarray(npcChan,dtype=int))))
+    pc_tag=f"pc{pc_sum_tag}_{pc_per_chan_tag}"
+    dataset_name=f"trainset_{mat_tag}_nz{nz}_in{inorm}_nch{len(chan)}_{pc_tag}_wav{wav_tag}_ns{n_valid}_{ts}.npz"
     dataset_path=os.path.join(out_dir,dataset_name)
     created_at=datetime.now().isoformat(timespec="seconds")
     payload=dict(
@@ -137,6 +141,7 @@ def main():
     args=ap.parse_args()
 
     npcChan=(8,9,9,14,18,19,20,21) #接口
+    #npcChan = [5, 6, 6, 10, 10, 10, 10]
     try:
         chan=tuple(int(x.strip()) for x in str(args.chan).split(",") if x.strip())
     except ValueError as e:
@@ -150,7 +155,7 @@ def main():
     selected_npcChan=tuple(npcChan[c-1] for c in chan)
     print(f"use selected channels {chan}")
     print(f"use selected npcChan {selected_npcChan}")
-    x,t,n_valid,out_traindataset_path=prepare_pca_features_and_io(args.mat,out_dir=args.out_dir,inorm=args.inorm,nz=args.nz,chan=chan,npcChan=npcChan)
+    x,t,n_valid,out_traindataset_path=prepare_pca_features_and_io(args.mat,out_dir=args.out_dir,inorm=args.inorm,nz=args.nz,chan=chan,npcChan=selected_npcChan)
     print({
         "x_shape":tuple(x.shape),
         "t_shape":tuple(t.shape),

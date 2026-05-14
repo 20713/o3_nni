@@ -9,6 +9,7 @@ import matlab.engine
 import pandas as pd
 
 from .infer import load_model, predict
+from .eval_plots import save_evaluation_plots
 
 
 def _read_h5_scalar_attr(f, name):
@@ -154,7 +155,25 @@ def validate(
     # 目标高度网格：0..60 km，共 61 层（与 NN 输出维度一致）
     lz = aux["z"]  # (61,）默认是0 ... nz-1 km）
     zq = lz.astype(float)
-    print(f"use altitude:{zq}")
+    #print(f"use altitude:{zq}")
+    z_eval = np.arange(15.0, 46.0, 1.0, dtype=float)
+
+    def _interp_profile(z_src, y_src, z_dst):
+        z_src = np.asarray(z_src, dtype=float).reshape(-1)
+        y_src = np.asarray(y_src, dtype=float).reshape(-1)
+        m = np.isfinite(z_src) & np.isfinite(y_src)
+        if np.count_nonzero(m) < 2:
+            return np.full_like(z_dst, np.nan, dtype=float)
+        z_use = z_src[m]
+        y_use = y_src[m]
+        order = np.argsort(z_use)
+        z_use = z_use[order]
+        y_use = y_use[order]
+        z_unique, idx = np.unique(z_use, return_index=True)
+        y_unique = y_use[idx]
+        if z_unique.size < 2:
+            return np.full_like(z_dst, np.nan, dtype=float)
+        return np.interp(z_dst, z_unique, y_unique, left=np.nan, right=np.nan)
 
     # 加载训练好的网络 + scaler（推理需要一致的选列与缩放）
     ctx = load_model(model_path=model_path)
@@ -212,6 +231,8 @@ def validate(
                 omps_tag = os.path.splitext(os.path.basename(omps_l1_path))[0]
                 pdf_path = os.path.join(run_out_dir, f"ResultCompare_{omps_tag}.pdf")
                 pdf = PdfPages(pdf_path)
+                t_list = []
+                y_list = []
 
                 # iS：狭缝序号（1-based），转换到 0-based 作为数组索引
                 iS0 = int(iS) - 1
@@ -226,6 +247,7 @@ def validate(
                         saa = float(np.abs(geoSAA[iT0, iS0]))
                         # 当前观测的切点高度（101 层）
                         z0 = np.asarray(th[iT0, iS0, :], dtype=float) # shape:(101,) value:[0.5,100.5,1]
+                        #print("z0:",z0)
                         # 当前观测的辐射二维场（高度×波长，shape=(101,266)）
                         rad_zwl = np.asarray(RAD0[iT0, iS0, :, :], dtype=float) 
                         # 负值辐射视为无效点（后续 mask 会过滤；log 也要求 >0）
@@ -270,7 +292,7 @@ def validate(
                             print(f"orbit={orbit} fov={iT} not found")
                             continue
                         idB = int(idxs[0])
-                        print(f"idB={idB}")
+                        #print(f"idB={idB}")
 
                         # Bremen 剖面：按时间索引 idB 直接取一行（shape=(61,)）
                         noz = ozB[idB, :].astype(float)
@@ -282,13 +304,19 @@ def validate(
                         ozvmr = np.asarray(1e12 * noz / nair, dtype=float).reshape(-1)
                         # Bremen 高度轴（61）
                         tgh1 = np.asarray(tghB, dtype=float).reshape(-1)
-                        print("tgh1:",tgh1)
-                        print("lz:",lz)
+                        #print("tgh1:",tgh1)
+                        #print("lz:",lz)
+
+                        t_eval = _interp_profile(tgh1, ozvmr, z_eval)
+                        y_eval = _interp_profile(lz, y2, z_eval)
+                        if np.all(np.isfinite(t_eval)) and np.all(np.isfinite(y_eval)):
+                            t_list.append(t_eval)
+                            y_list.append(y_eval)
 
                         # 左图：Bremen（黑） vs ONNI（红）臭氧剖面对比
                         ax1.clear()
                         ax1.plot(ozvmr, tgh1, "k-d", linewidth=2, markersize=3, label="BREMEN")
-                        ax1.plot(y2, lz, "r-", linewidth=2, label="ONNI 7 channels.")
+                        ax1.plot(y2, lz, "r-", linewidth=2, label="ONNI")
                         ax1.set_ylim([0, 60])
                         ax1.set_xlim([-1, 14])
                         ax1.grid(True, which="both", alpha=0.3)
@@ -333,6 +361,25 @@ def validate(
                 else:
                     plt.close(fig_compare)
                 print(f"save {pdf_path}")
+
+                if len(t_list) > 0:
+                    t_te = np.stack(t_list, axis=0)
+                    y_te = np.stack(y_list, axis=0)
+                    dy = y_te - t_te
+                    mse = float(np.mean(dy**2))
+                    reg = float(np.corrcoef(y_te.reshape(-1), t_te.reshape(-1))[0, 1])
+                    title = f"ONNI(red) vs Bremen(blue) 15-45 km; n_profile={t_te.shape[0]} mse={mse:.4g} corr={reg:.6f}"
+                    save_evaluation_plots(
+                        t_te=t_te,
+                        y_te=y_te,
+                        out_dir=run_out_dir,
+                        out_prefix="omps_eval_15_45km",
+                        train_mse=mse,
+                        test_mse=mse,
+                        test_reg=reg,
+                        z=z_eval,
+                        title=title,
+                    )
     finally:
         try:
             # 关闭 MATLAB 引擎（释放资源）

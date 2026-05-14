@@ -39,7 +39,7 @@ def train_from_data(args):
     ds_tr=TensorDataset(torch.from_numpy(x_tr).float(),torch.from_numpy(t_tr).float())
     ds_va=TensorDataset(torch.from_numpy(x_va).float(),torch.from_numpy(t_va).float())
     ds_te=TensorDataset(torch.from_numpy(x_te).float(),torch.from_numpy(t_te).float())
-    dl_tr=DataLoader(ds_tr,batch_size=args.batch_size,shuffle=False)
+    dl_tr=DataLoader(ds_tr,batch_size=args.batch_size,shuffle=True)#训练集打乱顺序
     dl_va=DataLoader(ds_va,batch_size=args.batch_size,shuffle=False)
     net=Net(x_tr.shape[1]).to(device)
     print("model architecture:")
@@ -47,11 +47,23 @@ def train_from_data(args):
     total_params=sum(p.numel() for p in net.parameters())
     trainable_params=sum(p.numel() for p in net.parameters() if p.requires_grad)
     print(f"model params: total={total_params:,}, trainable={trainable_params:,}")
-    opt=torch.optim.Adam(net.parameters(),lr=args.lr)
+    opt=torch.optim.AdamW(net.parameters(),lr=args.lr,weight_decay=float(args.weight_decay))
+    scheduler = None
+    lr_scheduler = str(getattr(args, "lr_scheduler", "none")).strip().lower()
+    if lr_scheduler == "plateau":
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            opt,
+            mode="min",
+            factor=float(args.lr_factor),
+            patience=int(args.lr_patience),
+            min_lr=float(args.min_lr),
+            threshold=1e-4,
+            threshold_mode="rel"
+        )
     loss_fn=nn.MSELoss()
     best_va=np.inf
     best_state=None
-    patience=args.epochs//10
+    early_stop_patience = 100#args.epochs//10
     wait=0
     total_epochs=max(1,int(args.epochs))
     bar_width=30
@@ -77,6 +89,8 @@ def train_from_data(args):
             yv=torch.from_numpy(t_va).float().to(device)
             pv=net(xv)
             va_loss=loss_fn(pv,yv).item()
+        if scheduler is not None:
+            scheduler.step(float(va_loss))
         improved=False
         if va_loss<best_va:
             best_va=va_loss
@@ -88,10 +102,11 @@ def train_from_data(args):
         progress=(epoch+1)/total_epochs
         filled=int(bar_width*progress)
         bar="="*filled+"."*(bar_width-filled)
-        print(f"\r[{bar}] {epoch+1}/{total_epochs} train={epoch_tr_loss:.6g} val={va_loss:.6g} best={best_va:.6g} wait={wait}/{patience}",end="",flush=True)
-        if improved or (epoch+1)==total_epochs or wait>=patience:
+        cur_lr=float(opt.param_groups[0]["lr"])
+        print(f"\r[{bar}] {epoch+1}/{total_epochs} train={epoch_tr_loss:.6g} val={va_loss:.6g} best={best_va:.6g} wait={wait}/{early_stop_patience} lr={cur_lr:.3g}",end="",flush=True)
+        if improved or (epoch+1)==total_epochs or wait>=early_stop_patience:
             print()
-        if wait>=patience:
+        if wait>=early_stop_patience:
             print(f"early stop at epoch={epoch+1}, best_val={best_va:.6g}",flush=True)
             break
     if best_state is not None:
@@ -150,6 +165,11 @@ def main():
     ap.add_argument("--out_dir",type=str,default="./o3_nni/TRAIN_outputs")
     ap.add_argument("--device",type=str,default="cuda:0")
     ap.add_argument("--lr",type=float,default=1e-3)
+    ap.add_argument("--weight_decay",type=float,default=1e-5)
+    ap.add_argument("--lr_scheduler",type=str,default="none",choices=["none","plateau"])
+    ap.add_argument("--lr_factor",type=float,default=0.5)
+    ap.add_argument("--lr_patience",type=int,default=50)
+    ap.add_argument("--min_lr",type=float,default=1e-6)
     ap.add_argument("--batch_size",type=int,default=1024)
     ap.add_argument("--seed",type=int,default=0)
     args=ap.parse_args()
