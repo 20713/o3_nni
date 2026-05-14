@@ -8,11 +8,11 @@
 - `o3_nni/`
   - `RTM_datasets/`：SmartG模拟生产的大规模 `.mat` 格式数据集所在目录
   - `TRAIN_datasets/`：数据准备脚本`data_prepare.py` 默认输出目录（可用 `--out_dir` 指定）
-  - `TRAIN_outputs/`：模型训练脚本`model_train.py` 默认输出根目录，按时间戳保存 `model.pt` 与评估图片（可用 `--out_dir` 指定）
+  - `TRAIN_outputs/`：模型训练脚本`model_train.py` 默认输出根目录，按时间戳保存 `model.pth` 与评估图片（可用 `--out_dir` 指定）
   - `sample_files/`：保留的输入示例目录（部分脚本仍可使用）
   - `validate_omps_output/`：omps卫星数据验证脚本`validate_omps.py` 默认输出根目录，按时间戳建子目录保存所反演的廓线对比PDF（可用 `--out_dir` 指定）
   - `data_prepare.py`：从 `.mat` 生成训练数据集 npz（包含 x/t 与 PCA 工件），默认输出目录为 `./o3_nni/TRAIN_datasets`
-  - `model_train.py`：两层 MLP 训练，保存 `model.pt` 与评估图片，默认输出目录为 `./o3_nni/TRAIN_outputs`
+  - `model_train.py`：两层 MLP 训练，保存 `model.pth` 与评估图片，默认输出目录为 `./o3_nni/TRAIN_outputs`
   - `validate_omps.py`：OMPS L1 + Bremen L2 对照验证（MATLAB Engine：`gridfit` + `interp2('makima')`），默认输出目录为 `./o3_nni/validate_omps_output`
   - `net.py`：统一的网络结构定义（训练/推断/验证共用）
   - `scalers.py`：归一化/反归一化相关（`MapMinMax`）
@@ -67,7 +67,7 @@ python -m o3_nni.model_train \
 ```
 
 输出（同一时间戳目录）：
-- `o3_nni/TRAIN_outputs/{timestamp}/model.pt`
+- `o3_nni/TRAIN_outputs/{timestamp}/model.pth`
 - `o3_nni/TRAIN_outputs/{timestamp}/nni_py_mean_std.png`
 - `o3_nni/TRAIN_outputs/{timestamp}/nni_py_dsz.png`
 - `o3_nni/TRAIN_outputs/{timestamp}/nni_py_signed_percentiles.png`
@@ -76,6 +76,7 @@ python -m o3_nni.model_train \
 说明：
 - `model_train.py` 在训练结束后会自动生成上述评估图（前缀固定为 `nni_py`，无需额外参数）。
 - `--lr_scheduler plateau` 使用验证集 `va_loss` 触发降学习率；`lr_patience` 与训练早停（early stop）的 patience 相互独立。
+- 训练保存的模型 checkpoint 会携带 `pca_config`（例如 `inorm/npcChan/chan/wav_chan/z/Uoz/YMoz` 等），供 OMPS 验证阶段直接使用。
 
 ## OMPS 对照验证（导出 PDF）
 
@@ -85,14 +86,13 @@ python -m o3_nni.model_train \
 python -m o3_nni.validate_omps \
   --omps ./o3_nni/sample_files/OMPS-NPP_LP-L1G-EV_v2.6_2016m0301t224735_o22510_2022m1005t174807.h5 \
   --bremen ./o3_nni/sample_files/ESACCI-OZONE-L2-LP-OMPS_LP_SUOMI_NPP-IUP_UBR_V3_3NLC_UBR_HARMOZ_ALT-201603-fv0005.nc \
-  --pca_config ./o3_nni/sample_files/ozAux3.npz \
-  --model ./o3_nni/sample_files/model.pt \
+  --model ./o3_nni/sample_files/model.pth \
   --no-show --smooth 10 --out_dir ./o3_nni/validate_omps_output
 ```
 
 说明：
-- `--pca_config` 可直接指定为`data_prepare.py`生成的训练数据集 npz，因为其中已包含 `inorm/npcChan/Uoz/YMoz` 等工件(默认为`./o3_nni/sample_files/ozAux3.npz`)
-- `--model` 可直接指定为训练脚本生成的 `model.pt`(默认使用 `./o3_nni/sample_files/model.pt`)
+- `validate_omps.py` 默认从模型 checkpoint 中读取 `pca_config`（不再单独读取额外的 npz 配置文件）。
+- `--model` 指向训练脚本生成的模型文件（例如 `o3_nni/TRAIN_outputs/{timestamp}/model.pth`）。
 - `--out_dir` 不填时默认写入 `./o3_nni/validate_omps_output/{timestamp}/`
 - 每个 iT 输出一页 PDF：左侧 O3 剖面（BREMEN vs ONNI），右侧为通道辐射的重构曲线与观测散点
 - 额外输出一组汇总评估图（统一高度网格为 15–45 km）：
