@@ -114,7 +114,6 @@ def _gridfit_makima_engine(z0, wl0, rad_zwl, zq, lam, eng, smooth, project_root,
 def validate(
     omps_l1_path,
     bremen_l2_path,
-    pca_config_path,
     model_path,
     smooth=10.0,
     output_dir=None,
@@ -135,25 +134,27 @@ def validate(
     base=os.path.dirname(__file__)
 
     # 严格校验文件是否存在
-    for path in [omps_l1_path, bremen_l2_path, pca_config_path, model_path]:
+    for path in [omps_l1_path, bremen_l2_path, model_path]:
         if not os.path.exists(path):
             raise FileNotFoundError(f"无法找到文件: {path}")
 
-    # pca_config_path 里保存了归一化高度索引、各通道 PCA 个数、PCA 基、均值谱等
-    aux = np.load(pca_config_path)
-    print(f"load pca config from {pca_config_path}")
+    ctx = load_model(model_path=model_path)
+
+    aux = ctx.get("pca_config")
+    if aux is None:
+        raise ValueError("model checkpoint does not contain pca_config; please re-train with updated model_train.py")
+    print("load pca config from model checkpoint")
     inorm = int(aux["inorm"]) # 归一化参考高度索引（1-based；训练与推理必须一致，通常 inorm=41 对应 40 km）
     print(f"use inorm:{inorm}")
-    npcChan = aux["npcChan"].astype(int).tolist()
-    print(f"use npcChan:{npcChan}")
+    # ONNI 使用的 7 个通道中心波长（单位与 wl0 统一：nm）
+    lam = aux["wav"]#wav_chan=np.array([300, 315, 351, 525, 600, 675, 745], dtype=float)
+    print(f"use wav:{lam}")
+    npcChan = aux["npc_wav"].astype(int).tolist()
+    print(f"use npc_wav:{npcChan}")
     Uoz = aux["Uoz"]
     YMoz = aux["YMoz"]
-
-    # ONNI 使用的 7 个通道中心波长（单位与 wl0 统一：nm）
-    lam = aux["wav_chan"]#wav_chan=np.array([300, 315, 351, 525, 600, 675, 745], dtype=float)
-    print(f"use wav_chan:{lam}")
     # 目标高度网格：0..60 km，共 61 层（与 NN 输出维度一致）
-    lz = aux["z"]  # (61,）默认是0 ... nz-1 km）
+    lz = aux["radiance_grid"]  # (61,）默认是0 ... nz-1 km）
     zq = lz.astype(float)
     #print(f"use altitude:{zq}")
     z_eval = np.arange(15.0, 46.0, 1.0, dtype=float)
@@ -176,7 +177,6 @@ def validate(
         return np.interp(z_dst, z_unique, y_unique, left=np.nan, right=np.nan)
 
     # 加载训练好的网络 + scaler（推理需要一致的选列与缩放）
-    ctx = load_model(model_path=model_path)
     project_root = os.path.dirname(os.path.dirname(__file__))
     # 启动 MATLAB 引擎，用于调用 gridfit.m 和 interp2
     eng = matlab.engine.start_matlab()
@@ -401,9 +401,6 @@ def main():
     ap.add_argument("--bremen", type=str, 
                     default=os.path.join(inputs_dir, "ESACCI-OZONE-L2-LP-OMPS_LP_SUOMI_NPP-IUP_UBR_V3_3NLC_UBR_HARMOZ_ALT-201603-fv0005.nc"), 
                     help="Bremen L2 输入 netCDF 文件路径")
-    ap.add_argument("--pca_config", type=str, 
-                    default=os.path.join(inputs_dir, "ozAux3.npz"), 
-                    help="特征提取与PCA配置路径 (npz文件，包含所选波段wav_chan、归一化高度inorm以及PCA基等，由data_prepare.py生成)")
     ap.add_argument("--model", type=str, 
                     default=os.path.join(inputs_dir, "model.pt"), 
                     help="训练好的模型文件路径")
@@ -419,7 +416,6 @@ def main():
     validate(
         omps_l1_path=args.omps,
         bremen_l2_path=args.bremen,
-        pca_config_path=args.pca_config,
         model_path=args.model,
         smooth=args.smooth,
         output_dir=args.out_dir,

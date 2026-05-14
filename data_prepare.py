@@ -114,11 +114,11 @@ def prepare_pca_features_and_io(mat_path,inorm=41,chan=(1,2,3,4,5,6,7),npcChan=(
         t=out,
         valid_sample_idx=valid_sample_idx,
         valid_samples_numbers=n_valid,
-        z=np.array(nodes),
+        radiance_grid=np.array(nodes),
         inorm=inorm,
-        npcChan=np.array(npcChan),
         chan=np.array(chan),
-        wav_chan=np.array(wav_chan),
+        wav=np.array(wav_chan),
+        npc_wav=np.array(npcChan),
         Uoz=Uoz,
         YMoz=YMoz,
         dYMoz=dYMoz,
@@ -140,7 +140,7 @@ def main():
     ap.add_argument("--nz",type=int,default=61,help="For prepare trainset,number of vertical levels(X,Y same) to use (keep first nz layers)")
     args=ap.parse_args()
 
-    npcChan=(8,9,9,14,18,19,20,21) #接口
+    npcChan=(8,9,9,14,18,19,20,21) #待完成接口
     #npcChan = [5, 6, 6, 10, 10, 10, 10]
     try:
         chan=tuple(int(x.strip()) for x in str(args.chan).split(",") if x.strip())

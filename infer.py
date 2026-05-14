@@ -20,11 +20,12 @@ def load_model(model_path=None,device=None):
     t_mask=obj["t_scaler"]["mask"]
     t_xmin=obj["t_scaler"]["xmin"]
     t_scale=obj["t_scaler"]["scale"]
+    pca_config=obj.get("pca_config")
     in_dim=int(x_mask.sum())  # 网络输入维度=保留特征数
     net=Net(in_dim).to(device)
     net.load_state_dict(obj["state_dict"])
     net.eval()
-    return {"net":net,"device":device,"x_mask":x_mask,"x_xmin":x_xmin,"x_scale":x_scale,"t_mask":t_mask,"t_xmin":t_xmin,"t_scale":t_scale}
+    return {"net":net,"device":device,"x_mask":x_mask,"x_xmin":x_xmin,"x_scale":x_scale,"t_mask":t_mask,"t_xmin":t_xmin,"t_scale":t_scale,"pca_config":pca_config}
     
 # def predict(x,ctx):
 #     x2=x[:,ctx["x_mask"]]  # 推理时仅选择训练阶段使用的特征列

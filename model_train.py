@@ -10,15 +10,25 @@ from .net import Net
 from .scalers import MapMinMax
 from datetime import datetime
 def load_prepared_npz(data_path):
-    obj=np.load(data_path,allow_pickle=True)
-    if "x" in obj and "t" in obj:
-        x=obj["x"]
-        t=obj["t"]
-        return x,t
+    with np.load(data_path, allow_pickle=True) as obj:
+        if "x" in obj and "t" in obj:
+            x = obj["x"]
+            t = obj["t"]
+            pca_keys = (
+                "wav",
+                "npc_wav",
+                "inorm",
+                "radiance_grid",
+                "Uoz",
+                "YMoz",
+            )
+            pca_config = {k: obj[k] for k in pca_keys if k in obj}
+            return x, t, pca_config
     raise ValueError(f"npz {data_path} must contain keys 'x' and 't'")
 
 def train_from_data(args):
-    inp,out=load_prepared_npz(args.data_path)
+    inp,out,pca_config=load_prepared_npz(args.data_path)
+    print("pca_config.keys()",pca_config.keys())
     print(f"loaded {args.data_path}")
     np.random.seed(int(args.seed))
     torch.manual_seed(int(args.seed))
@@ -140,14 +150,25 @@ def train_from_data(args):
     # save model
     t = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_path = os.path.join(str(args.out_dir),t)
-    model_path=os.path.join(out_path,"model.pt")
+    model_path=os.path.join(out_path,"model.pth")
     try:
         os.makedirs(out_path,exist_ok=True)
         print(f"create output dir {out_path}")
     except Exception:
         pass
     print(f"save model to {model_path}")
-    torch.save({"state_dict":net.state_dict(),"x_scaler":{"mask":x_scaler.mask,"xmin":x_scaler.xmin,"scale":x_scaler.scale},"t_scaler":{"mask":t_scaler.mask,"xmin":t_scaler.xmin,"scale":t_scaler.scale}}, model_path)
+    torch.save(
+        {
+            "state_dict": net.state_dict(),
+            "x_scaler": {"mask": x_scaler.mask, "xmin": x_scaler.xmin, "scale": x_scaler.scale},
+            "t_scaler": {"mask": t_scaler.mask, "xmin": t_scaler.xmin, "scale": t_scaler.scale},
+            "pca_config": pca_config,
+            #"train_data_path": str(args.data_path),
+            #"train_args": vars(args),
+            #"saved_at": str(t),
+        },
+        model_path,
+    )
     save_evaluation_plots(
         t_te=t_te_i,
         y_te=pe_i,
