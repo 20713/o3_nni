@@ -1,6 +1,5 @@
 from torch import nn
 
-
 class Net(nn.Module):
     def __init__(self,in_dim,out_dim=61,hid1=61,hid2=61):
         super().__init__()

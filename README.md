@@ -87,14 +87,17 @@ python -m o3_nni.validate_omps \
   --omps ./o3_nni/sample_files/OMPS-NPP_LP-L1G-EV_v2.6_2016m0301t224735_o22510_2022m1005t174807.h5 \
   --bremen ./o3_nni/sample_files/ESACCI-OZONE-L2-LP-OMPS_LP_SUOMI_NPP-IUP_UBR_V3_3NLC_UBR_HARMOZ_ALT-201603-fv0005.nc \
   --model ./o3_nni/sample_files/model.pth \
-  --no-show --smooth 10 --out_dir ./o3_nni/validate_omps_output
+  --smooth 10 --out_dir ./o3_nni/validate_omps_output
 ```
 
 说明：
 - `validate_omps.py` 默认从模型 checkpoint 中读取 `pca_config`（不再单独读取额外的 npz 配置文件）。
 - `--model` 指向训练脚本生成的模型文件（例如 `o3_nni/TRAIN_outputs/{timestamp}/model.pth`）。
 - `--out_dir` 不填时默认写入 `./o3_nni/validate_omps_output/{timestamp}/`
-- 每个 iT 输出一页 PDF：左侧 O3 剖面（BREMEN vs ONNI），右侧为通道辐射的重构曲线与观测散点
+- 默认处理沿轨观测序号 `iT=20..160`（1-based，可通过 `--start/--stop/--step` 调整；若超过文件实际 AlongTrack 长度会自动裁剪）
+- 默认保存逐页对比 PDF；加 `--no_pdf`（或 `--no-pdf`）后不保存 PDF，仅输出汇总评估图 png
+- 当保存 PDF 时，每个 iT 输出一页：左侧 O3 剖面（BREMEN vs ONNI），右侧为通道辐射的重构曲线与观测散点
+- 支持 `--omps` 传入文件夹：会扫描目录下所有 `.h5` 并逐个处理，输出到 `out_dir/{batch_ts}/{omps_basename}/`；同时在 `out_dir/{batch_ts}/` 额外输出跨文件汇总评估图（前缀 `omps_eval_15_45km_all`）
 - 额外输出一组汇总评估图（统一高度网格为 15–45 km）：
   - `omps_eval_15_45km_mean_std.png`
   - `omps_eval_15_45km_dsz.png`
