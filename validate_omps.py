@@ -169,10 +169,16 @@ def validate(
     print(f"use npc_wav:{npcChan}")
     Uoz = aux["Uoz"]
     YMoz = aux["YMoz"]
-    # 目标高度网格：0..60 km，共 61 层（与 NN 输出维度一致）
-    lz = aux["radiance_grid"]  # (61,）默认是0 ... nz-1 km）
-    zq = lz.astype(float)
-    #print(f"use altitude:{zq}")
+    zq = np.asarray(aux["radiance_grid"], dtype=float).reshape(-1)
+    lz = np.asarray(aux["vmr_grid"], dtype=float).reshape(-1)
+    if zq.size < 2:
+        raise ValueError(f"radiance_grid is invalid: len={zq.size}")
+    if lz.size < 2:
+        raise ValueError(f"vmr_grid is invalid: len={lz.size}")
+    if not (1 <= int(inorm) <= int(zq.size)):
+        raise ValueError(f"inorm={inorm} out of range for radiance_grid (len={zq.size})")
+    print(f"use radiance_grid:{zq}")
+    print(f"use vmr_grid:{lz}")
     z_eval = np.arange(15.0, 46.0, 1.0, dtype=float)
 
     def _interp_profile(z_src, y_src, z_dst):
@@ -283,8 +289,8 @@ def validate(
                     # 对每个通道做 PCA 投影并截断到该通道指定的 pc 数（npcChan）
                     Ait = []
                     # Yp：PCA 重构后的辐射（用于右图展示）；Yomps：原始 normalized log-radiance
-                    Yp = np.zeros((len(lam), len(lz)))
-                    Yomps = np.zeros((len(lam), len(lz)))
+                    Yp = np.zeros((len(lam), len(zq)))
+                    Yomps = np.zeros((len(lam), len(zq)))
                     for ich in range(len(lam)):
                         npcs = int(npcChan[ich])
                         ydum = radln[:, ich]
@@ -322,6 +328,8 @@ def validate(
                     tgh1 = np.asarray(tghB, dtype=float).reshape(-1)
 
                     t_eval = _interp_profile(tgh1, ozvmr, z_eval)
+                    if y2.size != lz.size:
+                        raise ValueError(f"vmr_grid length {lz.size} does not match y2 length {y2.size}")
                     y_eval = _interp_profile(lz, y2, z_eval)
                     if np.all(np.isfinite(t_eval)) and np.all(np.isfinite(y_eval)):
                         t_list.append(t_eval)
@@ -340,8 +348,8 @@ def validate(
 
                         ax2.clear()
                         for k in range(Yp.shape[0]):
-                            ax2.plot(Yp[k, :], lz, linewidth=1.5)
-                        ax2.scatter(Yomps.reshape(-1), np.repeat(lz[None, :], Yomps.shape[0], axis=0).reshape(-1), c="k", s=8)
+                            ax2.plot(Yp[k, :], zq, linewidth=1.5)
+                        ax2.scatter(Yomps.reshape(-1), np.repeat(zq[None, :], Yomps.shape[0], axis=0).reshape(-1), c="k", s=8)
                         ax2.set_ylim([0, 60])
                         ax2.set_xlim([-3, 7])
                         ax2.grid(True, which="both", alpha=0.3)
@@ -353,8 +361,8 @@ def validate(
                             t_str = t_raw.decode("utf-8", errors="replace")
                         else:
                             t_str = str(t_raw)
-                        fig_compare.suptitle(
-                            f"Time={t_str} Orbit={orbit} Obs={iT0} Lat={lat:.4f} Lon={lon:.4f}  sza={sza:.2f} saa={saa:.2f}  smooth={smooth}",
+                        fig_compare.suptitle( #iT0 是索引，从0开始，iT0+1 是FOV序号，即观测序号
+                            f"Time={t_str} Orbit={orbit} Obs={iT0+1} Lat={lat:.4f} Lon={lon:.4f}  sza={sza:.2f} saa={saa:.2f}  smooth={smooth}",
                             fontsize=10,
                         )
                         fig_compare.tight_layout(rect=[0, 0, 1, 0.95])

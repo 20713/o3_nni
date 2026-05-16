@@ -27,14 +27,22 @@ def load_training_mat(mat_path):
     vmr=d.get("vmr")
     SZA=d.get("SZA")
     SAA=d.get("SAA")
-    return wav,radiance,LOKI,vmr,SZA,SAA,mat_path   
+    ZT = d.get("ZT")
+    return wav,radiance,LOKI,vmr,SZA,SAA,ZT,mat_path   
 
 
 def prepare_pca_features_and_io(mat_path,inorm=41,chan=(1,2,3,4,5,6,7),npcChan=(8,9,9,14,18,19,20),nz=61,out_dir=None):
 
-    wav,radiance,LOKI,vmr,SZA,SAA,mat_used_path=load_training_mat(mat_path)
+    wav,radiance,LOKI,vmr,SZA,SAA,ZT,mat_used_path=load_training_mat(mat_path)
     nz=min(nz,radiance.shape[1])
-    nodes=np.arange(nz)
+    idx_rad=np.arange(nz)
+    rad_km = ZT[idx_rad]
+    idx_vmr = np.arange(nz)
+    vmr_km = idx_vmr
+    print("idx_rad:",idx_rad)
+    print("rad_km:",rad_km)
+    print("idx_vmr:",idx_vmr)
+    print("vmr_km:",vmr_km)
     wav_arr=np.asarray(wav).squeeze()
     if wav_arr.ndim!=1:
         raise ValueError(f"WAV must be 1D after squeeze, got shape={wav_arr.shape}")
@@ -61,7 +69,7 @@ def prepare_pca_features_and_io(mat_path,inorm=41,chan=(1,2,3,4,5,6,7),npcChan=(
     wav_chan=wav_arr[chan_idx] #排序？？？
     valid_sample_idx=np.where(np.all(LOKI[:,chan_idx],axis=1))[0]
     n_valid=valid_sample_idx.size
-    log_radiance=np.log(radiance[valid_sample_idx][:,nodes][:,:,chan_idx])
+    log_radiance=np.log(radiance[valid_sample_idx][:,idx_rad][:,:,chan_idx])
     normalized_log_radiance=log_radiance-log_radiance[:,inorm-1,:][:,None,:]
 
     YMoz=np.zeros((nz,len(chan)))
@@ -114,7 +122,10 @@ def prepare_pca_features_and_io(mat_path,inorm=41,chan=(1,2,3,4,5,6,7),npcChan=(
         t=out,
         valid_sample_idx=valid_sample_idx,
         valid_samples_numbers=n_valid,
-        radiance_grid=np.array(nodes),
+        radiance_grid_idx=np.array(idx_rad),
+        radiance_grid=rad_km,
+        vmr_grid_idx=np.array(idx_vmr),
+        vmr_grid=vmr_km,
         inorm=inorm,
         chan=np.array(chan),
         wav=np.array(wav_chan),

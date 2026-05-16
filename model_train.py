@@ -19,10 +19,12 @@ def load_prepared_npz(data_path):
                 "npc_wav",
                 "inorm",
                 "radiance_grid",
+                "vmr_grid",
                 "Uoz",
                 "YMoz",
             )
             pca_config = {k: obj[k] for k in pca_keys if k in obj}
+            print(pca_config["vmr_grid"])
             return x, t, pca_config
     raise ValueError(f"npz {data_path} must contain keys 'x' and 't'")
 

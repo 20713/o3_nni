@@ -1,6 +1,6 @@
 import numpy as np
 
-data = np.load(r"D:\binhou_iDATA\binhou_iDATA_codes\Mydata_NNItrain\Mydata_NNItrain\o3_nni/TRAIN_datasets\trainset_run_20260307_110701_SmartG_OutputXY_For_NNtrain_nz61_in41_nch7_pc97_8-9-9-14-18-19-20_wav300-315-351-525-600-675-745_ns21841_20260514_160017.npz")
+data = np.load(r"D:\binhou_iDATA\binhou_iDATA_codes\Mydata_NNItrain\Mydata_NNItrain\o3_nni/TRAIN_datasets\trainset_run_20260307_110701_SmartG_OutputXY_For_NNtrain_nz61_in41_nch7_pc97_8-9-9-14-18-19-20_wav300-315-351-525-600-675-745_ns21841_20260515_113134.npz")
 
 print("Keys in npz:\n")
 

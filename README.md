@@ -97,6 +97,7 @@ python -m o3_nni.validate_omps \
 - 默认处理沿轨观测序号 `iT=20..160`（1-based，可通过 `--start/--stop/--step` 调整；若超过文件实际 AlongTrack 长度会自动裁剪）
 - 默认保存逐页对比 PDF；加 `--no_pdf`（或 `--no-pdf`）后不保存 PDF，仅输出汇总评估图 png
 - 当保存 PDF 时，每个 iT 输出一页：左侧 O3 剖面（BREMEN vs ONNI），右侧为通道辐射的重构曲线与观测散点
+- 高度网格说明：`radiance_grid=0.5..60.5 km`（用于辐射插值与归一化参考层 `inorm`），`vmr_grid=0..60 km`（用于 NN 输出臭氧剖面与评估插值）
 - 支持 `--omps` 传入文件夹：会扫描目录下所有 `.h5` 并逐个处理，输出到 `out_dir/{batch_ts}/{omps_basename}/`；同时在 `out_dir/{batch_ts}/` 额外输出跨文件汇总评估图（前缀 `omps_eval_15_45km_all`）
 - 额外输出一组汇总评估图（统一高度网格为 15–45 km）：
   - `omps_eval_15_45km_mean_std.png`
