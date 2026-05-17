@@ -1,6 +1,5 @@
-# RTM_datasets/**/*.mat filter=lfs diff=lfs merge=lfs -text
-# TRAIN_datasets/**/*.npz filter=lfs diff=lfs merge=lfs -text
-# *.nc filter=lfs diff=lfs merge=lfs -text
-# *.h5 filter=lfs diff=lfs merge=lfs -text
-# *.mat filter=lfs diff=lfs merge=lfs -text
-# *.npz filter=lfs diff=lfs merge=lfs -text
+# 仅 sample_files/ 下的示例数据用 Git LFS
+sample_files/**/*.nc filter=lfs diff=lfs merge=lfs -text
+sample_files/**/*.h5 filter=lfs diff=lfs merge=lfs -text
+sample_files/**/*.mat filter=lfs diff=lfs merge=lfs -text
+sample_files/**/*.npz filter=lfs diff=lfs merge=lfs -text
