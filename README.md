@@ -115,8 +115,8 @@ python -m o3_nni.validate_omps \
 
 本项目在 `o3_nni/` 下提供了当前可运行环境的快照文件，便于在新机器/新环境中复现：
 
-- `o3_nni/environment.yml`：Conda 环境导出（包含 Python/torch/cuda 以及 pip 依赖段）
-- `o3_nni/requirements_pip.txt`：`pip freeze` 结果（依赖快照备份）
+- `o3_nni/environment.yml`：推荐用于迁移的 Conda 环境规格（包含 Python=3.9、PyTorch/CUDA 以及本项目所需的关键科学计算依赖）
+- `o3_nni/requirements_pip.txt`：`pip freeze` 快照（用于对比/排查依赖差异，不建议在新机器直接 `pip install -r`）
 
 推荐用 Conda 复现（会创建 `name:` 指定的环境名，例如 `ONNI`）：
 
@@ -126,5 +126,5 @@ conda activate ONNI
 ```
 
 说明：
-- `requirements_pip.txt` 通常不需要单独安装（因为 `environment.yml` 已包含 `pip:` 段）；它主要用于对比/排查依赖差异
-- OMPS 验证还需要额外安装 MATLAB Engine（不包含在 `environment.yml`/`pip freeze` 中）
+- `environment.yml` 固定 Python 主版本为 3.9（当前 ONNI 环境为 3.9.19），迁移时建议优先保证 Python 大版本一致
+- OMPS 验证需要 MATLAB Engine：通常需要在 MATLAB 安装目录下执行 `python -m pip install .` 完成安装；`pip freeze` 里可能出现 `matlabengine==...` 但它并不能通过 PyPI 直接安装
